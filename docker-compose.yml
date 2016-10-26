@@ -1,0 +1,37 @@
+version: '2'
+services:
+    db:
+        image: mysql:5.6
+        environment:
+            MYSQL_ROOT_PASSWORD: changeMe
+        ports:
+            - 33060:3306
+        volumes:
+            - ./backup/var/lib/mysql:/var/lib/mysql
+    phpmyadmin:
+        depends_on:
+            - db
+        image: phpmyadmin/phpmyadmin
+        links:
+            - db:mysql
+        ports:
+            - 8181:80
+        environment: 
+            MYSQL_USER: root
+            MYSQL_ROOT_PASSWORD: changeMe
+            PMA_HOST: mysql
+    web:
+        build: ubuntu-apache/14-04
+        environment:
+            - TERM=xterm
+        depends_on:
+            - db
+        ports:
+            - 80:80
+            - 8000:8000
+            - 8080:8080
+        volumes:
+            - ./public_html:/var/www/html
+            - ./backup/virtual_hosts:/virtual_hosts
+        links:
+            - db:mysql
