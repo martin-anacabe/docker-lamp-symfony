@@ -1,62 +1,50 @@
-FROM ubuntu:trusty
+FROM debian:jessie
 MAINTAINER Martín Anacabe <anacabe.martin@gmail.com>
 
 # Set LANG
 RUN export LANG=C.UTF-8
 
 # Add aptitude
-RUN apt-get update && apt-get install -y aptitude
-
-# Add image configuration and scripts
-ADD scripts/*.sh /bin/
-
-# Add supervisor
-RUN aptitude install -y supervisor
-RUN mkdir -p /var/log/supervisor
-
-# Set permissions of scripts
-RUN chmod 755 /bin/*.sh
+RUN apt-get update && apt-get install -y aptitude && aptitude safe-upgrade -y
 
 # Add utils
 RUN aptitude install -y \
-    acl \
+    acl \   
     curl \
     git \
     sqlite3 \
     wget
 
-# Add add-apt-repository
-RUN aptitude install -y software-properties-common && \
-    add-apt-repository ppa:ondrej/php5-5.6  && \
-    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E5267A6C && \
-    aptitude update
-
 # Add apache2
 RUN aptitude install -y apache2
+
+# Add supervisor
+RUN aptitude install -y supervisor
+RUN mkdir -p /var/log/supervisor 
 
 # Config Apache
 ADD apache2/apache_default /etc/apache2/sites-available/000-default.conf
 ADD apache2/supervisor.conf /etc/supervisor/conf.d/apache2.conf
 
-# Add php5
-RUN aptitude install -y libapache2-mod-php5 \
-        php-apc \
-        php-pear \
-        php5-mysql \
-        php5-mcrypt \
-        php5-gd \
-        php5-curl \
-        php-apc \
-        php5-intl \
-        php5-sqlite \
-        php5-xdebug  && \
-        /usr/sbin/php5enmod mcrypt
+# Add php5.6
+ENV PHP_VERSION php5
+RUN aptitude install -y \
+    libapache2-mod-$PHP_VERSION \
+    php-pear \
+    $PHP_VERSION-apcu \
+    $PHP_VERSION-curl \
+    $PHP_VERSION-gd \
+    $PHP_VERSION-intl \
+    $PHP_VERSION-mcrypt \
+    $PHP_VERSION-mysqlnd \
+    $PHP_VERSION-sqlite \
+    $PHP_VERSION-xdebug
 
-# Config php5
+# Config php5.6
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
-    sed -i "s/variables_order.*/variables_order = \"EGPCS\"/g" /etc/php5/apache2/php.ini && \
-    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/php5/apache2/php.ini && \
-    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/php5/cli/php.ini
+    sed -i "s/variables_order.*/variables_order = \"EGPCS\"/g" /etc/$PHP_VERSION/apache2/php.ini && \
+    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/$PHP_VERSION/apache2/php.ini && \
+    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/$PHP_VERSION/cli/php.ini
 
 # Download composer, phpunit and nvm
 RUN wget -q -O /usr/local/bin/composer https://getcomposer.org/composer.phar && chmod +x /usr/local/bin/composer && \
@@ -73,6 +61,12 @@ WORKDIR /var/www/html
 EXPOSE 80 8000 8080
 
 # Clean image
-RUN rm -rf /var/lib/apt/lists/*
+# RUN rm -rf /var/lib/apt/lists/*
+
+# Add image configuration and scripts
+ADD scripts/*.sh /bin/
+
+# Set permissions of scripts
+RUN chmod 755 /bin/*.sh
 
 CMD ["/bin/run.sh"]
