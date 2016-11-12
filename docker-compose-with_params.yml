@@ -21,7 +21,7 @@ services:
             MYSQL_ROOT_PASSWORD: changeMe
             PMA_HOST: mysql
     web:
-        build: ubuntu-apache/14-04
+        build: apache
         environment:
             - TERM=xterm
             - UID=${uid}

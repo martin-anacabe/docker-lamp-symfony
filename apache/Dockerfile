@@ -4,15 +4,16 @@ MAINTAINER Martín Anacabe <anacabe.martin@gmail.com>
 # Set LANG
 RUN export LANG=C.UTF-8
 
-# Add aptitude
-RUN apt-get update && apt-get install -y aptitude && aptitude safe-upgrade -y
+# Add sudo and aptitude
+RUN apt-get update && apt-get install -y sudo aptitude && aptitude safe-upgrade -y
 
 # Add utils
 RUN aptitude install -y \
     acl \   
     curl \
     git \
-    sqlite3 \
+    sqlite \
+    vim \
     wget
 
 # Add apache2
