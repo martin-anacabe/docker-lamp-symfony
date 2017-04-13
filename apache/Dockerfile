@@ -49,7 +49,7 @@ RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
 
 # Download composer, phpunit and nvm
 RUN wget -q -O /usr/local/bin/composer https://getcomposer.org/composer.phar && chmod +x /usr/local/bin/composer && \
-    wget -q -O /usr/local/bin/phpunit https://phar.phpunit.de/phpunit.phar && chmod +x /usr/local/bin/phpunit && \ 
+    wget -q -O /usr/local/bin/phpunit https://phar.phpunit.de/phpunit-5.7.phar && chmod +x /usr/local/bin/phpunit && \
     wget -q -O /bin/install-nvm.sh https://raw.githubusercontent.com/creationix/nvm/master/install.sh && chmod +x /bin/install-nvm.sh
 
 # Add symofny installer
@@ -69,5 +69,9 @@ ADD scripts/*.sh /bin/
 
 # Set permissions of scripts
 RUN chmod 755 /bin/*.sh
+
+# Add sections for more utils
+RUN aptitude install -y 7zip-full \
+    && rm -rf /var/lib/apt/lists/*
 
 CMD ["/bin/run.sh"]

@@ -1,0 +1,9 @@
+version: '2'
+services:
+    web:
+        environment:
+            - TERM=xterm
+            - UID=${uid}
+        volumes:
+            - "${home}/public_html:/var/www/html"
+            - ./backup/virtual_hosts:/virtual_hosts
