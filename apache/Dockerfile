@@ -74,4 +74,11 @@ RUN chmod 755 /bin/*.sh
 RUN aptitude install -y 7zip-full \
     && rm -rf /var/lib/apt/lists/*
 
+# Put logfiles into a volume. This also works around bug
+# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=810669
+# caused by base image using old version of coreutils
+# which causes "tail: unrecognized file system type 0x794c7630 for '/var/log/'"
+# when using docker with overlay storage driver.
+VOLUME /var/log
+
 CMD ["/bin/run.sh"]
