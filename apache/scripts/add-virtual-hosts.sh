@@ -8,4 +8,4 @@ do
     sudo a2ensite "$site"
 done
 
-sudo supervisorctl restart apache2
+sudo service apache2 restart

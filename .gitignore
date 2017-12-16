@@ -120,6 +120,8 @@ $RECYCLE.BIN/
 .env
 /backup/var
 !backup/virtual_hosts/.gitkeep
+!backup/apache2/ssl/.gitkeep
 /backup/virtual_hosts
+/backup/apache2/ssl
 /public_html
 

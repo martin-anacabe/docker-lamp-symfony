@@ -1,8 +1,27 @@
-FROM debian:jessie
+FROM phusion/baseimage:0.9.22
 MAINTAINER Martín Anacabe <anacabe.martin@gmail.com>
 
-# Set LANG
-RUN export LANG=C.UTF-8
+ENV DEBIAN_FRONTEND=noninteractive \
+    LETSENCRYPT_HOME=/etc/letsencrypt \
+    DOMAINS="" \
+    WEBMASTER_MAIL="" \
+    DOCKER_HOME=/home/docker \
+    DOCKER_UID=1000
+
+# Manually set the apache environment variables in order to get apache to work immediately.
+RUN echo $WEBMASTER_MAIL > /etc/container_environment/WEBMASTER_MAIL && \
+    echo $DOMAINS > /etc/container_environment/DOMAINS && \
+    echo $LETSENCRYPT_HOME > /etc/container_environment/LETSENCRYPT_HOME && \
+    echo $DOCKER_HOME > /etc/container_environment/DOCKER_HOME && \
+    echo $DOCKER_UID > /etc/container_environment/DOCKER_UID
+
+CMD ["/sbin/my_init"]
+
+# Set the entry directory
+WORKDIR /var/www/html
+
+# Expose the ports
+EXPOSE 80 443
 
 # Add sudo and aptitude
 RUN apt-get update && apt-get install -y sudo aptitude && aptitude safe-upgrade -y
@@ -12,73 +31,66 @@ RUN aptitude install -y \
     acl \   
     curl \
     git \
+    p7zip-full \
+    software-properties-common \
     sqlite \
     vim \
     wget
 
-# Add apache2
-RUN aptitude install -y apache2
+# Add apache2 and lets encrypt for apache
+RUN aptitude install -y apache2 python-letsencrypt-apache
 
-# Add supervisor
-RUN aptitude install -y supervisor
-RUN mkdir -p /var/log/supervisor 
+# Add image configuration and scripts
+ADD config/mods-available/proxy_html.conf /etc/apache2/mods-available/
+ADD config/conf-available/security.conf /etc/apache2/conf-available/
+RUN echo "ServerName localhost" >> /etc/apache2/conf-enabled/hostname.conf && \
+    sed -i "s/AllowOverride None/AllowOverride All/g" /etc/apache2/apache2.conf && \
+    a2enmod ssl headers proxy proxy_http proxy_html xml2enc rewrite usertrack remoteip && \
+    a2dissite 000-default default-ssl && \
+    mkdir -p /var/lock/apache2 && \
+    mkdir -p /var/run/apache2
 
-# Config Apache
-ADD apache2/apache_default /etc/apache2/sites-available/000-default.conf
-ADD apache2/supervisor.conf /etc/supervisor/conf.d/apache2.conf
+# Configure runit
+RUN mkdir -p /etc/service/apache
+ADD config/scripts/run_apache.sh /etc/service/apache/run
+ADD config/scripts/init_letsencrypt.sh /etc/my_init.d/
+ADD config/scripts/init_docker_user.sh /etc/my_init.d/
+ADD config/scripts/run_letsencrypt.sh /bin/run_letsencrypt.sh
+RUN chmod +x /bin/*.sh && chmod +x /etc/my_init.d/*.sh && chmod +x /etc/service/apache/*
 
-# Add php5.6
-ENV PHP_VERSION php5
+# Add php
+ENV PHP_VERSION 5.6
+RUN add-apt-repository ppa:ondrej/php && aptitude update
 RUN aptitude install -y \
-    libapache2-mod-$PHP_VERSION \
-    php-pear \
-    $PHP_VERSION-apcu \
-    $PHP_VERSION-curl \
-    $PHP_VERSION-gd \
-    $PHP_VERSION-intl \
-    $PHP_VERSION-mcrypt \
-    $PHP_VERSION-mysqlnd \
-    $PHP_VERSION-sqlite \
-    $PHP_VERSION-xdebug
-
-# Config php5.6
+        libapache2-mod-php$PHP_VERSION \
+        php$PHP_VERSION \
+        #php$PHP_VERSION-apcu \
+        php$PHP_VERSION-curl \
+        php$PHP_VERSION-gd \
+        php$PHP_VERSION-intl \
+        php$PHP_VERSION-mbstring \
+        php$PHP_VERSION-mcrypt \
+        php$PHP_VERSION-mysqlnd \
+        php$PHP_VERSION-sqlite3 \
+        php$PHP_VERSION-xml
+        
+# Config php
 RUN echo "ServerName localhost" >> /etc/apache2/apache2.conf && \
-    sed -i "s/variables_order.*/variables_order = \"EGPCS\"/g" /etc/$PHP_VERSION/apache2/php.ini && \
-    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/$PHP_VERSION/apache2/php.ini && \
-    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/$PHP_VERSION/cli/php.ini
+    sed -i "s/variables_order.*/variables_order = \"EGPCS\"/g" /etc/php/$PHP_VERSION/apache2/php.ini && \
+    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/php/$PHP_VERSION/apache2/php.ini && \
+    sed -i 's/;\(date\.timezone =\)/\1 America\/Argentina\/Buenos_Aires/g' /etc/php/$PHP_VERSION/cli/php.ini
 
 # Download composer, phpunit and nvm
 RUN wget -q -O /usr/local/bin/composer https://getcomposer.org/composer.phar && chmod +x /usr/local/bin/composer && \
     wget -q -O /usr/local/bin/phpunit https://phar.phpunit.de/phpunit-5.7.phar && chmod +x /usr/local/bin/phpunit && \
     wget -q -O /bin/install-nvm.sh https://raw.githubusercontent.com/creationix/nvm/master/install.sh && chmod +x /bin/install-nvm.sh
 
-# Add symofny installer
-RUN curl -LsS https://symfony.com/installer -o /usr/local/bin/symfony && chmod a+x /usr/local/bin/symfony
-
-# Set the entry directory
-WORKDIR /var/www/html
-
-# Expose the ports
-EXPOSE 80 8000 8080
-
-# Clean image
-# RUN rm -rf /var/lib/apt/lists/*
-
-# Add image configuration and scripts
 ADD scripts/*.sh /bin/
+RUN chmod +x /bin/*.sh
 
-# Set permissions of scripts
-RUN chmod 755 /bin/*.sh
+## Clean image
+#RUN rm -rf /var/lib/apt/lists/**
 
-# Add sections for more utils
-RUN aptitude install -y 7zip-full \
-    && rm -rf /var/lib/apt/lists/*
+RUN mkdir -p /etc/apache2/ssl
 
-# Put logfiles into a volume. This also works around bug
-# https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=810669
-# caused by base image using old version of coreutils
-# which causes "tail: unrecognized file system type 0x794c7630 for '/var/log/'"
-# when using docker with overlay storage driver.
-VOLUME /var/log
-
-CMD ["/bin/run.sh"]
+VOLUME [ "$LETSENCRYPT_HOME", "/etc/apache2/ssl", "/var/log/apache2" ]

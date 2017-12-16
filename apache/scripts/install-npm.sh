@@ -8,6 +8,3 @@ fi
 
 sh /bin/install-nvm.sh
 . $BASH_RC
-
-nvm install 6
-npm install -g gulp bower less

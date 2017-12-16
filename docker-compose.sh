@@ -1,7 +1,7 @@
 #!/bin/sh
 
-echo "uid="$(id -u) > .env
-echo "home="$HOME >> .env
+echo "UID="$(id -u) > .env
+echo "HOME="$HOME >> .env
 
 mkdir -p backup/virtual_hosts
 sudo docker-compose -f docker-compose.yml -f docker-compose-override.yml $@

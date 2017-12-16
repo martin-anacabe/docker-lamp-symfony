@@ -1,9 +1,20 @@
 version: '2'
 services:
+    db:
+        ports:
+            - 33060:3306
+    phpmyadmin:
+        ports:
+            - 8181:80
     web:
         environment:
-            - TERM=xterm
-            - UID=${uid}
+            - UID=${UID}
+            - WEBMASTER_MAIL=admin@localhost.dev
         volumes:
-            - "${home}/public_html:/var/www/html"
+            - "${HOME}/public_html:/var/www/html"
             - ./backup/virtual_hosts:/virtual_hosts
+            - ./backup/letsencrypt:/etc/letsencrypt
+            - ./backup/apache2/ssl:/etc/apache2/ssl
+        ports:
+            - 80:80
+            - 443:443
