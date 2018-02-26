@@ -1,19 +1,22 @@
 FROM phusion/baseimage:0.9.22
-MAINTAINER Martín Anacabe <anacabe.martin@gmail.com>
+
+LABEL manteiner="Martín Anacabe <anacabe.martin@gmail.com>"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LETSENCRYPT_HOME=/etc/letsencrypt \
     DOMAINS="" \
     WEBMASTER_MAIL="" \
-    DOCKER_HOME=/home/docker \
     DOCKER_UID=1000
 
 # Manually set the apache environment variables in order to get apache to work immediately.
 RUN echo $WEBMASTER_MAIL > /etc/container_environment/WEBMASTER_MAIL && \
     echo $DOMAINS > /etc/container_environment/DOMAINS && \
     echo $LETSENCRYPT_HOME > /etc/container_environment/LETSENCRYPT_HOME && \
-    echo $DOCKER_HOME > /etc/container_environment/DOCKER_HOME && \
     echo $DOCKER_UID > /etc/container_environment/DOCKER_UID
+
+# Add docker user
+RUN useradd -g users -G sudo -u $DOCKER_UID -s /bin/bash -d /home/docker -m docker && \
+    echo "docker:docker" | chpasswd
 
 CMD ["/sbin/my_init"]
 
@@ -35,7 +38,8 @@ RUN aptitude install -y \
     software-properties-common \
     sqlite \
     vim \
-    wget
+    wget \
+    zip
 
 # Add apache2 and lets encrypt for apache
 RUN aptitude install -y apache2 python-letsencrypt-apache
@@ -54,7 +58,6 @@ RUN echo "ServerName localhost" >> /etc/apache2/conf-enabled/hostname.conf && \
 RUN mkdir -p /etc/service/apache
 ADD config/scripts/run_apache.sh /etc/service/apache/run
 ADD config/scripts/init_letsencrypt.sh /etc/my_init.d/
-ADD config/scripts/init_docker_user.sh /etc/my_init.d/
 ADD config/scripts/run_letsencrypt.sh /bin/run_letsencrypt.sh
 RUN chmod +x /bin/*.sh && chmod +x /etc/my_init.d/*.sh && chmod +x /etc/service/apache/*
 
@@ -71,6 +74,7 @@ RUN aptitude install -y \
         php$PHP_VERSION-mbstring \
         php$PHP_VERSION-mcrypt \
         php$PHP_VERSION-mysqlnd \
+        php$PHP_VERSION-pdo-mysql \
         php$PHP_VERSION-sqlite3 \
         php$PHP_VERSION-xml
         
@@ -89,7 +93,7 @@ ADD scripts/*.sh /bin/
 RUN chmod +x /bin/*.sh
 
 ## Clean image
-#RUN rm -rf /var/lib/apt/lists/**
+RUN rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /etc/apache2/ssl
 
